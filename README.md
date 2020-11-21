@@ -1,5 +1,5 @@
 # Korkteller
-Neon-oransje dings på øljekken på Regi hybel som sporer Regis hobbyalkoholisme i sanntid
+Neon-oransje dings på øljekken på Regi hybel som sporer Regis hobbyalkoholisme i sanntid.
 Ble bygget og installert i November 2020 mens Hyblene var koronastengt
 
 ## Hvordan funker det?
