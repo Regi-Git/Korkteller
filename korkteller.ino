@@ -29,8 +29,8 @@ LiquidCrystal_PCF8574 lcd(LCD_I2C_ADDR);
  *  og som sørger for debounce
 */
 
-int forrige_kork_tid = 0;
-bool kork_registrert = false;
+volatile int forrige_kork_tid = 0;
+volatile bool kork_registrert = false;
 
 
 int registrer_kork(){
@@ -164,9 +164,9 @@ void loop()
   // wait for WiFi connection
   if(kork_registrert)
   {
-    kork_registrert = false; 
     registrer_kork();
   }
+  kork_registrert = false; 
   delay(100);
 }
 
