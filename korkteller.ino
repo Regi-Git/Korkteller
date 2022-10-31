@@ -10,6 +10,7 @@
 #include <Esp.h>
 #include <LiquidCrystal_PCF8574.h>
 #include <Wire.h>
+#include <WiFiClientSecureBearSSL.h>
 
 /* this can be run with an emulated server on host:
         cd esp8266-core-root-dir
@@ -23,92 +24,92 @@
 #define LCD_I2C_ADDR 0x27
 LiquidCrystal_PCF8574 lcd(LCD_I2C_ADDR);
 
-
-/* 
- *  Variabler som blir bruk til å registrere korker med laseren 
+/*
+ *  Variabler som blir bruk til å registrere korker med laseren
  *  og som sørger for debounce
-*/
+ */
 
 volatile int forrige_kork_tid = 0;
 volatile bool kork_registrert = false;
 
+int registrer_kork()
+{
 
-int registrer_kork(){
-  
-   if ((WiFi.status() == WL_CONNECTED)) 
-   {
-
-      WiFiClient client;
-      HTTPClient http;
-  
-      // configure url
-      http.begin(client, "http://regi.samfundet.no/kork"); //HTTP
-      http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-
-      // start connection and send HTTP header and body
-      int httpCode = http.POST("1_OL=Tissetass");
-
-      lcd.clear();
-      lcd.setBacklight(255);
-      lcd.setCursor(0, 1);
-      lcd.print("-- Kork detektert -- ");
-      lcd.setCursor(0, 2);
-  
-      if (httpCode > 0) 
-      {
-        if (httpCode == HTTP_CODE_OK) 
-        {
-          lcd.print("-- Kork registrert --");
-          delay(2000);
-          lcd.clear();
-          lcd.setBacklight(0);
-          return HTTP_CODE_OK;
-        }
-        
-      } else 
-      {
-         lcd.clear();
-         lcd.setCursor(0,1);
-         lcd.print("!Kan ikke koble til!");
-         lcd.setCursor(0,2);
-         lcd.print("!----- RESTART ----!");
-         delay(5000);
-         ESP.restart();
-         return httpCode;
-      }
-
-      http.end();
-  } else
+  if ((WiFi.status() == WL_CONNECTED))
   {
-     lcd.clear();
-     lcd.setCursor(0,1);
-     lcd.print("!Finner ikke server!");
-     lcd.setCursor(0,2);
-     lcd.print("!----- RESTART ----!");
-     delay(5000);
-     ESP.restart();
+
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+    client->setInsecure();
+    HTTPClient https;
+
+    // configure url
+    https.begin(*client, "https://regi.samfundet.no/intern/oljekk/jekk"); // HTTP
+    https.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    // start connection and send HTTP header and body
+
+    // OBS, denne nøkkelen må endres
+    // Sjekk settings_prod.py i Regiweb3-koden som ligger i prod på ITK-server
+    int httpCode = https.POST("kryptonokkel=oljekk_hemmelig");
+
+    lcd.clear();
+    lcd.setBacklight(255);
+    lcd.setCursor(0, 1);
+    lcd.print("-- Kork detektert -- ");
+    lcd.setCursor(0, 2);
+
+    if (httpCode > 0)
+    {
+      if (httpCode == HTTP_CODE_OK)
+      {
+        lcd.print("-- Kork registrert --");
+        delay(2000);
+        lcd.clear();
+        lcd.setBacklight(0);
+        return HTTP_CODE_OK;
+      }
+    }
+    else
+    {
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.printf("!Kan ikke koble til!");
+      lcd.setCursor(0, 2);
+      lcd.print("!----- RESTART ----!");
+      delay(5000);
+      ESP.restart();
+      return httpCode;
+    }
+
+    https.end();
   }
-  
+  else
+  {
+    lcd.clear();
+    lcd.setCursor(0, 1);
+    lcd.print("!Finner ikke server!");
+    lcd.setCursor(0, 2);
+    lcd.print("!----- RESTART ----!");
+    delay(5000);
+    ESP.restart();
+  }
 }
 
-
-void setup() 
+void setup()
 {
   // Sett opp LCD-displayet
-  
-  lcd.begin(20, 4); 
+
+  lcd.begin(20, 4);
   lcd.setBacklight(255);
   lcd.home();
   lcd.clear();
   lcd.print("LCD selvtest - OK");
 
-
   // Sett opp interrupt_pins på fotodioden
-  
+
   attachInterrupt(digitalPinToInterrupt(14), tissetass, FALLING);
   pinMode(14, INPUT_PULLUP);
   forrige_kork_tid = millis();
-
 
   // Sett opp WiFi
   WiFi.begin(NETTVERK_NAVN);
@@ -116,68 +117,67 @@ void setup()
   lcd.clear();
   lcd.home();
   lcd.print("Kobler til: ");
-  lcd.setCursor(0,1);
+  lcd.setCursor(0, 1);
   lcd.print(NETTVERK_NAVN);
-  lcd.setCursor(0,2);
-  
+  lcd.setCursor(0, 2);
+
   int retry_count = 0;
-  
-  while (WiFi.status() != WL_CONNECTED) 
+
+  while (WiFi.status() != WL_CONNECTED)
   {
     delay(3000);
     lcd.print(".");
     retry_count++;
-    if(retry_count > 20){
-       lcd.clear();
-       lcd.home();
-       lcd.print("!Kan ikke koble til!");
-       lcd.setCursor(0,1);
-       lcd.print(NETTVERK_NAVN);
-       lcd.setCursor(0,2);
-       lcd.print("!----- RESTART ----!");
-       delay(5000);
-       ESP.restart();
+    if (retry_count > 20)
+    {
+      lcd.clear();
+      lcd.home();
+      lcd.print("!Kan ikke koble til!");
+      lcd.setCursor(0, 1);
+      lcd.print(NETTVERK_NAVN);
+      lcd.setCursor(0, 2);
+      lcd.print("!----- RESTART ----!");
+      delay(5000);
+      ESP.restart();
     }
   }
-  
+
   lcd.clear();
   lcd.home();
   lcd.print("Koblet til!: ");
-  lcd.setCursor(0,1);
+  lcd.setCursor(0, 1);
   lcd.print(NETTVERK_NAVN);
-  lcd.setCursor(0,2);
+  lcd.setCursor(0, 2);
   lcd.print("IP: ");
   lcd.print(WiFi.localIP());
 
   delay(3000);
   lcd.clear();
   lcd.home();
-  lcd.setCursor(0,1);
+  lcd.setCursor(0, 1);
   lcd.print("--Korkteller klar --");
   delay(3000);
   lcd.setBacklight(0);
 }
 
-
-void loop() 
+void loop()
 {
   // wait for WiFi connection
-  if(kork_registrert)
+  if (kork_registrert)
   {
     registrer_kork();
   }
-  kork_registrert = false; 
+  kork_registrert = false;
   delay(100);
 }
 
-
-
-ICACHE_RAM_ATTR void tissetass(){
+ICACHE_RAM_ATTR void tissetass()
+{
   int tid = millis();
 
-  if (tid-forrige_kork_tid > 1000) {
-     forrige_kork_tid = tid;
-     kork_registrert = true;
+  if (tid - forrige_kork_tid > 1000)
+  {
+    forrige_kork_tid = tid;
+    kork_registrert = true;
   }
-
 }
